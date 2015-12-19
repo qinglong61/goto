@@ -1,0 +1,18 @@
+{
+  "name": "goto",
+  "description": "goto",
+  "version": "1.0",
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "tabs",
+    "*://*/*"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_action": {
+    "default_title": "goto"
+  },
+  "manifest_version": 2
+}
