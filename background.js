@@ -1,24 +1,36 @@
 const unreachableURL =
 [
-    "chrome.com",
-    "google.com"
+    "chrome.",
+    "google.",
+    "googleapis.",
+    "gstatic.",
+    "postimg.org",
+    "picuphost.com",
+    "qpic.ws"
 ];
 const unnecessaryURL =
 [
 
 ];
-const redirectUrl = "http://127.0.0.1:8080"
+const redirectUrl = "http://127.0.0.1:8080";
+var currentBaseURL = "";
 
-function getHost (url) {
+function getBaseURL (url) {
     var a =  document.createElement('a');
     a.href = url;
-    return a.hostname;
+    return a.protocol + "//" + a.hostname;
+}
+
+function getRelativeURL (url) {
+    var fromIndex = getBaseURL(url).length;
+    var toIndex = url.length;
+    return url.substring(fromIndex, toIndex);
 }
 
 function isUnreachableURL (url) {
-    var host = getHost(url);
+    var baseURL = getBaseURL(url);
     for (i=0;i<unreachableURL.length;i++) {
-        if( host.indexOf(unreachableURL[i]) != -1 ) {
+        if( baseURL.indexOf(unreachableURL[i]) != -1 ) {
             return true;
         }
     }
@@ -72,9 +84,18 @@ chrome.webRequest.onBeforeRequest.addListener(
     function (request) {// details
         var url = request.url;
         if ( isUnreachableURL(url) ) {
+            currentBaseURL = getBaseURL(url);
             return {
-                redirectUrl: redirectUrl + "?url=" + url
+                redirectUrl: redirectURL + "?url=" + url
             };// BolockingResponse
+        }
+        if (getBaseURL(url) == redirectURL) {
+            if ( url.indexOf("?url=") == -1 ) {
+                // handle relativeURL
+                return {
+                    redirectUrl: redirectURL + "?url=" + currentBaseURL + getRelativeURL(url)
+                };
+            }
         }
         if ( isUnnecessaryURL(url) ) {
             return {
