@@ -6,13 +6,17 @@ const unreachableURL =
     "gstatic.",
     "postimg.org",
     "picuphost.com",
-    "qpic.ws"
+    "qpic.ws",
+    "tietuku.com",
+    "niupic.com",
+    "imgbus.com"
 ];
 const unnecessaryURL =
 [
 
 ];
-const redirectUrl = "http://127.0.0.1:8080";
+const redirectURL = "http://133.130.125.133";
+// const redirectUrl = "http://127.0.0.1:8080";
 var currentBaseURL = "";
 
 function getBaseURL (url) {
