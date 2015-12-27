@@ -89,7 +89,9 @@ chrome.webRequest.onBeforeRequest.addListener(
     function (request) {// details
         var url = request.url;
         if ( isUnreachableURL(url) ) {
-            currentBaseURL = getBaseURL(url);
+            if (request.type == "main_frame") {
+                currentBaseURL = getBaseURL(url);
+            }
             return {
                 redirectUrl: redirectURL + "?url=" + url
             };// BolockingResponse
