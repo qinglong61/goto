@@ -9,7 +9,8 @@ const unreachableURL =
     "qpic.ws",
     "tietuku.com",
     "niupic.com",
-    "imgbus.com"
+    "imgbus.com",
+    "pixs.ru"
 ];
 const unnecessaryURL =
 [
