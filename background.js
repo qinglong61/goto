@@ -17,13 +17,13 @@ const unnecessaryURL =
 
 ];
 const redirectURL = "http://133.130.125.133";
-// const redirectUrl = "http://127.0.0.1:8080";
+// const redirectURL = "http://127.0.0.1:8080";
 var currentBaseURL = "";
 
 function getBaseURL (url) {
     var a =  document.createElement('a');
     a.href = url;
-    return a.protocol + "//" + a.hostname;
+    return a.protocol + "//" + a.hostname + ":" + a.port;
 }
 
 function getRelativeURL (url) {
