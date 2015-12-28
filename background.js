@@ -1,5 +1,7 @@
 const unreachableURL =
 [
+    "bdstatic.com",
+    "baidu.com",
     "chrome.",
     "google.",
     "googleapis.",
@@ -16,8 +18,8 @@ const unnecessaryURL =
 [
 
 ];
-const redirectURL = "http://133.130.125.133";
-// const redirectURL = "http://127.0.0.1:8080";
+// const redirectURL = "http://133.130.125.133";
+const redirectURL = "http://127.0.0.1:8080";
 var currentBaseURL = "";
 
 function getBaseURL (url) {
@@ -86,10 +88,11 @@ function isUnnecessaryURL (url) {
 // };
 
 chrome.webRequest.onBeforeRequest.addListener(
-    function (request) {// details
-        var url = request.url;
+    function (details) {// details
+        console.log(details);
+        var url = details.url;
         if ( isUnreachableURL(url) ) {
-            if (request.type == "main_frame") {
+            if (details.type == "main_frame") {
                 currentBaseURL = getBaseURL(url);
             }
             return {
@@ -113,5 +116,29 @@ chrome.webRequest.onBeforeRequest.addListener(
     {
         urls: ["<all_urls>"]
     },// RequestFilter
-    ["blocking"]// extraInfoSpec
+    ["blocking", "requestBody"]// extraInfoSpec
+    //POST请求能获取到requestBody
 );
+
+chrome.webRequest.onBeforeSendHeaders.addListener(
+    function (details) {// details
+        console.log(details);
+        var url = details.url;
+        if ( isUnreachableURL(url) ) {
+            return {
+                cancel: true
+            };
+            // return {
+            //     requestHeaders: details.HttpHeaders
+            // };// BolockingResponse
+        }
+    },// callback
+    {
+        urls: ["<all_urls>"]
+    },// RequestFilter
+    ["blocking", "requestHeaders"]// extraInfoSpec
+);
+
+// 第一次onBeforeRequest时不做操作，在onBeforeSendHeaders时拿到headers然后cancel这个request，然后重新发起这次请求，
+// 第二次onBeforeRequest时重定向，不会到onBeforeSendHeaders，
+// 第三次onBeforeRequest时不做操作，在onBeforeSendHeaders时替换headers为第一次请求拿到的headers。
