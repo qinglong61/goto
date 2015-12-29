@@ -14,12 +14,9 @@ const unreachableURL =
     "imgbus.com",
     "pixs.ru"
 ];
-const unnecessaryURL =
-[
 
-];
-// const redirectURL = "http://133.130.125.133";
-const redirectURL = "http://127.0.0.1:8080";
+// const redirectBaseURL = "http://133.130.125.133";
+const redirectBaseURL = "http://127.0.0.1:8080";
 var currentBaseURL = "";
 
 var Request = {
@@ -28,7 +25,10 @@ var Request = {
             id:"",
             url:"",
             status:"",
-            headers:[]//HttpHeaders
+            headers:[],//HttpHeaders
+            redirectURL: function () {
+                return redirectBaseURL + "?url=" + this.url;
+            }
         };
         return request;
     }
@@ -58,15 +58,6 @@ function isUnreachableURL (url) {
     return false;
 }
 
-function isUnnecessaryURL (url) {
-    for (i = 0; i < unnecessaryURL.length; i++) {
-        if ( url.indexOf(unnecessaryURL[i]) != -1 ) {
-            return true;
-        }
-    }
-    return false;
-}
-
 function getRequestById (requestId) {
     for (i = 0; i < requestQueue.length; i++) {
         var request = requestQueue[i];
@@ -78,36 +69,31 @@ function getRequestById (requestId) {
 
 chrome.webRequest.onBeforeRequest.addListener(
     function (details) {// details
+        if (!isUnreachableURL(details.url) && getBaseURL(details.url) != redirectBaseURL) {
+            return;
+        }
         var request = getRequestById(details.requestId);
         if (request == undefined) {
             request = Request.createNew();
             request.id = details.requestId;
-            request.url = details.url;
             request.status = "beforeRequest";
+            if (details.type == "main_frame") {
+                currentBaseURL = getBaseURL(details.url);
+                request.url = details.url;
+            } else {
+                // handle relativeURL
+                request.url = details.url.replace(redirectBaseURL, currentBaseURL);
+                if (getBaseURL(details.url) == redirectBaseURL) {
+                    console.log("yes");
+                }
+            }
             requestQueue.push(request);
         }
 
-        var url = details.url;
-        if ( isUnreachableURL(url) && request.headers) {
-            if (details.type == "main_frame") {
-                currentBaseURL = getBaseURL(url);
-            }
+        if (request.headers != undefined) {
             return {
-                redirectUrl: redirectURL + "?url=" + url
+                redirectUrl: request.redirectURL()
             };// BolockingResponse
-        }
-        if (getBaseURL(url) == redirectURL) {
-            if ( url.indexOf("?url=") == -1 ) {
-                // handle relativeURL
-                return {
-                    redirectUrl: redirectURL + "?url=" + currentBaseURL + getRelativeURL(url)
-                };
-            }
-        }
-        if ( isUnnecessaryURL(url) ) {
-            return {
-                cancel: true
-            };
         }
     },// callback
     {
@@ -120,8 +106,7 @@ chrome.webRequest.onBeforeRequest.addListener(
 chrome.webRequest.onBeforeSendHeaders.addListener(
     function (details) {// details
         var request = getRequestById(details.requestId);
-        var url = details.url;
-        if ( isUnreachableURL(url) ) {
+        if (request != undefined) {
             if (request.headers) {
                 return {
                     requestHeaders: request.headers
