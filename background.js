@@ -22,6 +22,20 @@ const unnecessaryURL =
 const redirectURL = "http://127.0.0.1:8080";
 var currentBaseURL = "";
 
+var Request = {
+    createNew: function () {
+        var request = {
+            id:"",
+            url:"",
+            status:"",
+            headers:[]//HttpHeaders
+        };
+        return request;
+    }
+};
+
+var requestQueue = [];
+
 function getBaseURL (url) {
     var a =  document.createElement('a');
     a.href = url;
@@ -36,8 +50,8 @@ function getRelativeURL (url) {
 
 function isUnreachableURL (url) {
     var baseURL = getBaseURL(url);
-    for (i=0;i<unreachableURL.length;i++) {
-        if( baseURL.indexOf(unreachableURL[i]) != -1 ) {
+    for (i = 0; i < unreachableURL.length; i++) {
+        if ( baseURL.indexOf(unreachableURL[i]) != -1 ) {
             return true;
         }
     }
@@ -45,13 +59,91 @@ function isUnreachableURL (url) {
 }
 
 function isUnnecessaryURL (url) {
-    for (i=0;i<unnecessaryURL.length;i++) {
-        if( url.indexOf(unnecessaryURL[i]) != -1 ) {
+    for (i = 0; i < unnecessaryURL.length; i++) {
+        if ( url.indexOf(unnecessaryURL[i]) != -1 ) {
             return true;
         }
     }
     return false;
 }
+
+function getRequestById (requestId) {
+    for (i = 0; i < requestQueue.length; i++) {
+        var request = requestQueue[i];
+        if ( request.id == requestId ) {
+            return request;
+        }
+    }
+}
+
+chrome.webRequest.onBeforeRequest.addListener(
+    function (details) {// details
+        var request = getRequestById(details.requestId);
+        if (request == undefined) {
+            request = Request.createNew();
+            request.id = details.requestId;
+            request.url = details.url;
+            request.status = "beforeRequest";
+            requestQueue.push(request);
+        }
+
+        var url = details.url;
+        if ( isUnreachableURL(url) && request.headers) {
+            if (details.type == "main_frame") {
+                currentBaseURL = getBaseURL(url);
+            }
+            return {
+                redirectUrl: redirectURL + "?url=" + url
+            };// BolockingResponse
+        }
+        if (getBaseURL(url) == redirectURL) {
+            if ( url.indexOf("?url=") == -1 ) {
+                // handle relativeURL
+                return {
+                    redirectUrl: redirectURL + "?url=" + currentBaseURL + getRelativeURL(url)
+                };
+            }
+        }
+        if ( isUnnecessaryURL(url) ) {
+            return {
+                cancel: true
+            };
+        }
+    },// callback
+    {
+        urls: ["<all_urls>"]
+    },// RequestFilter
+    ["blocking", "requestBody"]// extraInfoSpec
+    //POST请求能获取到requestBody
+);
+
+chrome.webRequest.onBeforeSendHeaders.addListener(
+    function (details) {// details
+        var request = getRequestById(details.requestId);
+        var url = details.url;
+        if ( isUnreachableURL(url) ) {
+            if (request.headers) {
+                return {
+                    requestHeaders: request.headers
+                };// BolockingResponse
+            } else {
+                request.headers = details.requestHeaders;
+                return {
+                    cancel: true
+                };
+            }
+        }
+    },// callback
+    {
+        urls: ["<all_urls>"]
+    },// RequestFilter
+    ["blocking", "requestHeaders"]// extraInfoSpec
+);
+
+// 第一次onBeforeRequest时不做操作，在onBeforeSendHeaders时拿到headers然后cancel这个request，然后重新发起这次请求，
+// 第二次onBeforeRequest时重定向，不会到onBeforeSendHeaders，
+// 第三次onBeforeRequest时不做操作，在onBeforeSendHeaders时替换headers为第一次请求拿到的headers。
+
 
 // const RequestFilter = {
 //     tabId: interger, //optional
@@ -86,59 +178,3 @@ function isUnnecessaryURL (url) {
 //     type: enumerated_string, //value in:  ["main_frame", "sub_frame", "stylesheet", "script", "image", "object", "xmlhttprequest", "other"]
 //     method: string //标准HTTP方法
 // };
-
-chrome.webRequest.onBeforeRequest.addListener(
-    function (details) {// details
-        console.log(details);
-        var url = details.url;
-        if ( isUnreachableURL(url) ) {
-            if (details.type == "main_frame") {
-                currentBaseURL = getBaseURL(url);
-            }
-            return {
-                redirectUrl: redirectURL + "?url=" + url
-            };// BolockingResponse
-        }
-        if (getBaseURL(url) == redirectURL) {
-            if ( url.indexOf("?url=") == -1 ) {
-                // handle relativeURL
-                return {
-                    redirectUrl: redirectURL + "?url=" + currentBaseURL + getRelativeURL(url)
-                };
-            }
-        }
-        if ( isUnnecessaryURL(url) ) {
-            return {
-                cancel: true
-            };
-        }
-    },// callback
-    {
-        urls: ["<all_urls>"]
-    },// RequestFilter
-    ["blocking", "requestBody"]// extraInfoSpec
-    //POST请求能获取到requestBody
-);
-
-chrome.webRequest.onBeforeSendHeaders.addListener(
-    function (details) {// details
-        console.log(details);
-        var url = details.url;
-        if ( isUnreachableURL(url) ) {
-            return {
-                cancel: true
-            };
-            // return {
-            //     requestHeaders: details.HttpHeaders
-            // };// BolockingResponse
-        }
-    },// callback
-    {
-        urls: ["<all_urls>"]
-    },// RequestFilter
-    ["blocking", "requestHeaders"]// extraInfoSpec
-);
-
-// 第一次onBeforeRequest时不做操作，在onBeforeSendHeaders时拿到headers然后cancel这个request，然后重新发起这次请求，
-// 第二次onBeforeRequest时重定向，不会到onBeforeSendHeaders，
-// 第三次onBeforeRequest时不做操作，在onBeforeSendHeaders时替换headers为第一次请求拿到的headers。
