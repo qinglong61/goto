@@ -67,6 +67,17 @@ function getRequestById (requestId) {
     }
 }
 
+function sendRequest (request) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", request.url, true);
+    // xhr.onreadystatechange = function() {
+    //   if (xhr.readyState == 4) {
+    //       xhr.responseText;
+    //   }
+    // }
+    xhr.send();
+}
+
 chrome.webRequest.onBeforeRequest.addListener(
     function (details) {// details
         if (!isUnreachableURL(details.url) && getBaseURL(details.url) != redirectBaseURL) {
@@ -77,20 +88,22 @@ chrome.webRequest.onBeforeRequest.addListener(
             request = Request.createNew();
             request.id = details.requestId;
             request.status = "beforeRequest";
+
             if (details.type == "main_frame") {
                 currentBaseURL = getBaseURL(details.url);
-                request.url = details.url;
-            } else {
-                // handle relativeURL
-                request.url = details.url.replace(redirectBaseURL, currentBaseURL);
-                if (getBaseURL(details.url) == redirectBaseURL) {
-                    console.log("yes");
-                }
             }
+            if (isUnreachableURL(details.url)) {
+                request.url = details.url;
+            } else if (getBaseURL(details.url) == redirectBaseURL) {
+                request.url = details.url.replace(redirectBaseURL, currentBaseURL);
+            }
+
             requestQueue.push(request);
         }
 
-        if (request.headers != undefined) {
+        if (request.headers.length != 0 && request.status != "redirected") {
+            console.log("<2>");
+            request.status = "redirected";
             return {
                 redirectUrl: request.redirectURL()
             };// BolockingResponse
@@ -107,11 +120,14 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
     function (details) {// details
         var request = getRequestById(details.requestId);
         if (request != undefined) {
-            if (request.headers) {
+            // console.log(request);
+            if (request.headers.length != 0) {
+                console.log("<3>");
                 return {
                     requestHeaders: request.headers
                 };// BolockingResponse
             } else {
+                console.log("<1>");
                 request.headers = details.requestHeaders;
                 return {
                     cancel: true
@@ -123,6 +139,19 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
         urls: ["<all_urls>"]
     },// RequestFilter
     ["blocking", "requestHeaders"]// extraInfoSpec
+);
+
+chrome.webRequest.onErrorOccurred.addListener(
+    function (details) {// details
+        var request = getRequestById(details.requestId);
+        if (request != undefined) {
+            //TO-DO 解决requestId会变的问题
+            // sendRequest(request);
+        }
+    },// callback
+    {
+        urls: ["<all_urls>"]
+    }// RequestFilter
 );
 
 // 第一次onBeforeRequest时不做操作，在onBeforeSendHeaders时拿到headers然后cancel这个request，然后重新发起这次请求，
