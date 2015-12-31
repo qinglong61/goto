@@ -19,6 +19,15 @@ const unreachableURL =
 const redirectBaseURL = "http://127.0.0.1:8080";
 var currentBaseURL = "";
 
+Array.prototype.removeObject = function (obj) {
+    for (var i = 0; i < this.length; i++) {
+        if (this[i] == obj) {
+            this.splice(i, 1);
+            break;
+        }
+    }
+}
+
 var Request = {
     createNew: function () {
         var request = {
@@ -36,16 +45,39 @@ var Request = {
 
 var requestQueue = [];
 
-function getBaseURL (url) {
-    var a =  document.createElement('a');
+function parseURL(url) {
+    var a = document.createElement('a');
     a.href = url;
-    return a.protocol + "//" + a.hostname + ":" + a.port;
+    return {
+        source: url,
+        protocol: a.protocol.replace(':', ''),
+        host: a.hostname,
+        port: a.port,
+        query: a.search,
+        params: (function () {
+            var ret = {};
+            var seg = a.search.replace(/^\?/, '').split('&');
+            for (var i = 0; i < seg.length; i++) {
+                if (!seg[i]) {
+                    continue;
+                }
+                var s = seg[i].split('=');
+                ret[s[0]] = s[1];
+            }
+            return ret;
+        })(),
+        file: (a.pathname.match(/\/([^\/?#]+)$/i) || [,''])[1],
+        hash: a.hash.replace('#', ''),
+        path: a.pathname.replace(/^([^\/])/, '/$1'),
+        relative: (a.href.match(/tps?:\/\/[^\/]+(.+)/) || [,''])[1],
+        segments: a.pathname.replace(/^\//, '').split('/')
+    };
 }
 
-function getRelativeURL (url) {
-    var fromIndex = getBaseURL(url).length;
-    var toIndex = url.length;
-    return url.substring(fromIndex, toIndex);
+function getBaseURL (url) {
+    var a = document.createElement('a');
+    a.href = url;
+    return a.protocol + "//" + a.hostname + ":" + a.port;
 }
 
 function isUnreachableURL (url) {
@@ -58,23 +90,30 @@ function isUnreachableURL (url) {
     return false;
 }
 
-function getRequestById (requestId) {
+function getRequest (details) {
     for (i = 0; i < requestQueue.length; i++) {
         var request = requestQueue[i];
-        if ( request.id == requestId ) {
+        if (request.id == details.requestId) {
+            return request;
+        } else if (request.id == parseURL(details.url).params.originRequestId) {
             return request;
         }
     }
 }
 
-function sendRequest (request) {
+function sendRequest (url) {
+
+}
+
+function sendXMLHttpRequest (url) {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", request.url, true);
-    // xhr.onreadystatechange = function() {
-    //   if (xhr.readyState == 4) {
-    //       xhr.responseText;
-    //   }
-    // }
+    xhr.open("GET", url, true);
+    // xhr.setRequestHeader(name, value);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4) {
+            console.log(xhr.responseText);
+        }
+    }
     xhr.send();
 }
 
@@ -83,8 +122,12 @@ chrome.webRequest.onBeforeRequest.addListener(
         if (!isUnreachableURL(details.url) && getBaseURL(details.url) != redirectBaseURL) {
             return;
         }
-        var request = getRequestById(details.requestId);
+        // console.log("id:____" + details.requestId);
+        // console.log("url:____" + details.url);
+        // console.log("type:____" + details.type);
+        var request = getRequest(details);
         if (request == undefined) {
+            console.log("new");
             request = Request.createNew();
             request.id = details.requestId;
             request.status = "beforeRequest";
@@ -97,12 +140,13 @@ chrome.webRequest.onBeforeRequest.addListener(
             } else if (getBaseURL(details.url) == redirectBaseURL) {
                 request.url = details.url.replace(redirectBaseURL, currentBaseURL);
             }
+            request.url = request.url + "&originRequestId=" + request.id;
 
             requestQueue.push(request);
         }
 
         if (request.headers.length != 0 && request.status != "redirected") {
-            console.log("<2>");
+            console.log("<2>---" + request.redirectURL());
             request.status = "redirected";
             return {
                 redirectUrl: request.redirectURL()
@@ -118,16 +162,16 @@ chrome.webRequest.onBeforeRequest.addListener(
 
 chrome.webRequest.onBeforeSendHeaders.addListener(
     function (details) {// details
-        var request = getRequestById(details.requestId);
+        var request = getRequest(details);
         if (request != undefined) {
             // console.log(request);
             if (request.headers.length != 0) {
-                console.log("<3>");
+                console.log("<3>---" + request.url);
                 return {
                     requestHeaders: request.headers
                 };// BolockingResponse
             } else {
-                console.log("<1>");
+                console.log("<1>---" + request.url);
                 request.headers = details.requestHeaders;
                 return {
                     cancel: true
@@ -143,10 +187,23 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 
 chrome.webRequest.onErrorOccurred.addListener(
     function (details) {// details
-        var request = getRequestById(details.requestId);
+        var request = getRequest(details);
         if (request != undefined) {
-            //TO-DO 解决requestId会变的问题
-            // sendRequest(request);
+            console.log("《sendRequest》" + request.url + "\nerror:-->>" + details.error);
+            sendRequest(request.url);
+        }
+    },// callback
+    {
+        urls: ["<all_urls>"]
+    }// RequestFilter
+);
+
+chrome.webRequest.onCompleted.addListener(
+    function (details) {// details
+        var request = getRequest(details);
+        if (request != undefined) {
+            console.log("《completed》" + request.url + "\nstatusCode:-->>" + details.statusCode);
+            requestQueue.removeObject(request);
         }
     },// callback
     {
