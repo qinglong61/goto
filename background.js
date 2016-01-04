@@ -5,14 +5,7 @@ const unreachableURL =
     "chrome.",
     "google.",
     "googleapis.",
-    "gstatic.",
-    "postimg.org",
-    "picuphost.com",
-    "qpic.ws",
-    "tietuku.com",
-    "niupic.com",
-    "imgbus.com",
-    "pixs.ru"
+    "gstatic."
 ];
 
 // const redirectBaseURL = "http://133.130.125.133";
