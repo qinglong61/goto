@@ -6,7 +6,7 @@
     "webRequest",
     "webRequestBlocking",
     "tabs",
-    "declarativeWebRequest",
+    "activeTab",
     "*://*/*"
   ],
   "background": {

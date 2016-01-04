@@ -101,8 +101,14 @@ function getRequest (details) {
     }
 }
 
-function sendRequest (url) {
-
+function sendRequest (tabId, url) {
+    chrome.tabs.executeScript(
+        tabId,
+        {
+            code: 'window.location.assign(' + url+ ');',
+            allFrames:true
+        }
+    );
 }
 
 function sendXMLHttpRequest (url) {
@@ -190,7 +196,7 @@ chrome.webRequest.onErrorOccurred.addListener(
         var request = getRequest(details);
         if (request != undefined) {
             console.log("《sendRequest》" + request.url + "\nerror:-->>" + details.error);
-            sendRequest(request.url);
+            sendRequest(details.tabId, request.url);
         }
     },// callback
     {
