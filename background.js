@@ -29,7 +29,7 @@ var Request = {
             status:"",
             headers:[],//HttpHeaders
             redirectURL: function () {
-                return redirectBaseURL + "?url=" + this.url;
+                return redirectBaseURL + "?url=" + escape(this.url);
             }
         };
         return request;
@@ -98,7 +98,7 @@ function sendRequest (tabId, url) {
     chrome.tabs.executeScript(
         tabId,
         {
-            code: 'window.location.assign(' + url+ ');',
+            code: 'window.location.assign("' + url + '");',
             allFrames:true
         }
     );
@@ -132,7 +132,9 @@ chrome.webRequest.onBeforeRequest.addListener(
             request.status = "beforeRequest";
 
             if (details.type == "main_frame") {
-                currentBaseURL = getBaseURL(details.url);
+                if (getBaseURL(details.url) != redirectBaseURL) {
+                    currentBaseURL = getBaseURL(details.url);
+                }
             }
             if (isUnreachableURL(details.url)) {
                 request.url = details.url;
